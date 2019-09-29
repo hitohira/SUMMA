@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <omp.h>
 #include <stdlib.h>
+#include <math.h>
 
 // 0  1  2  3
 // 4  5  6  7
@@ -95,6 +96,12 @@ int main(int argc,char** argv){
 	MPI_Init(&argc,&argv);
 	MPI_Comm_size(MPI_COMM_WORLD,&numproc);
 	MPI_Comm_Rank(MPI_COMM_WORLD,&myid);
+
+	// test local MatMatMul
+	if(!myDGEMMok() && myid == 0){
+		printf("local MMM wrong\n");
+		return 0;
+	}
 	
 	MPI_Comm comm_row,comm_col;
 
@@ -117,6 +124,9 @@ int main(int argc,char** argv){
 	MPI_Comm_Rank(comm_row,&rowid);
 	MPI_Comm_Rank(comm_col,&colid);
 
+	MPI_Barrier(MPI_COMM_WORLD);
+	double t1 = MPI_Wtime();
+
 	// assume A is transposed
 	for(int i = 0; i < Height; i++){
 		for(int j = 0; j < Width; j++){
@@ -128,6 +138,21 @@ int main(int argc,char** argv){
 				// C(i,j) = C(i,j) + ab
 				myDGEMM(nh,nw,K,work1,work2,C);
 			}
+		}
+	}
+
+	MPI_Barrier(MPI_COMM_WORLD);
+	double MPI_Wtime();
+	if(myid == 0){
+		printf("elapsed time = %f sec\n",t2-t1);
+	}
+
+	// algo check
+	double eps = 1e-12;
+	for(int i = 0; i < nw*nh; i++){
+		if(fabs(C[i]-N) > eps){
+			printf("global MMM wrong\n");
+			break;
 		}
 	}
 	
