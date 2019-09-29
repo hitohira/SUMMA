@@ -9,6 +9,7 @@
 //12 13 14 15 
 
 // each val is positive and power of 2, N >= Height * K, N >= Width * K
+// Height and Width depend on Num of MPI proc
 #define N 1024
 #define Height 4
 #define Width 4
