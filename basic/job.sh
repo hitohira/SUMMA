@@ -8,4 +8,4 @@ export OMP_NUM_THREADS=10
 export plm_ple_memory_allocation_policy=localalloc
 
 
-mpirun -np 16 -bind-to-socket -npersocket 1 ./a.out
+mpirun -np 16 -bind-to socket -npersocket 1 ./a.out

@@ -11,16 +11,17 @@
 
 // each val is positive and power of 2, N >= Height * K, N >= Width * K
 // Height and Width depend on Num of MPI proc
+// height == Width
 #define N 1024
 #define Height 4
 #define Width 4
-#define K 2
+#define K 4
 
 int nw,nh;
 double *A,*B,*C;
 double *work1,*work2;
 
-void initMat(double* A){
+void initMat(){
 	int i;
 	#pragma omp parallel for
 	for(i = 0; i < nh * nw; i++){
@@ -39,7 +40,7 @@ void arrayCopy(double* src,int num,double* dst){
 	}
 }
 
-void broadcast(MPI_Comm comm,int root,int id,double* src,int num,double* dst){
+void broadCast(MPI_Comm comm,int root,int id,double* src,int num,double* dst){
 	if(id == root){
 		arrayCopy(src,num,dst);
 	}
@@ -47,7 +48,7 @@ void broadcast(MPI_Comm comm,int root,int id,double* src,int num,double* dst){
 }
 
 // A = (n*k)^T, B = k*m, C = n*m
-void myDGEMM(int n,int m,int k,double* A,double* B,double* C){
+void myDGEMM(int n,int m,int k,double* a,double* b,double* c){
 	int p,q,r;
 	#pragma omp parallel
 	{
@@ -55,14 +56,14 @@ void myDGEMM(int n,int m,int k,double* A,double* B,double* C){
 			for(q = 0; q < n; q++){
 				#pragma omp for
 				for(r = 0; r < m; r++){
-					C[q*n+r] += A[p*n+q] * B[p*m+r];
+					c[q*n+r] += a[p*n+q] * b[p*m+r];
 				}
 			}
 		}
 	}
 }
 
-bool myDGEMMok(){
+int myDGEMMok(){
 	double a[16];
 	double b[16];
 	double c[16],d[16];
@@ -72,21 +73,31 @@ bool myDGEMMok(){
 		c[i] = 0.0;
 		d[i] = 0.0;
 	}
-	myDGEMM(4,4,4,a,b,d);
+	myDGEMM(4,4,4,a,b,d);  // assume A is transposed
+	for(int i = 0; i < 4; i++){
+		for(int j = i+1; j < 4; j++){
+			double tmp = a[i*4+j];
+			a[i*4+j] = a[j*4+i];
+			a[j*4+i] = tmp;
+		}
+	}
 	for(int i = 0; i < 4; i++){
 		for(int j = 0; j < 4; j++){
 			for(int k = 0; k < 4; k++){
-				c[i*4+j] += A[i*4+k] * B[k*4+j];
+				c[i*4+j] += a[i*4+k] * b[k*4+j];
 			}
 		}
 	}
 	double eps = 1e-12;
-	for(int i = 0; i < 16; i++){
-		if(fabs(c[i]-d[i]) > eps){
-			return false;
+	for(int i = 0; i < 4; i++){
+		for(int j = 0; j < 4; j++){
+			if(fabs(c[i*4+j]-d[i*4+j]) > eps){
+				printf("%f %f %d %d\n",c[i*4+j],d[i*4+j],i,j);
+				return 0;
+			}
 		}
 	}
-	return true;
+	return 1;
 }
 
 
@@ -95,12 +106,12 @@ int main(int argc,char** argv){
 
 	MPI_Init(&argc,&argv);
 	MPI_Comm_size(MPI_COMM_WORLD,&numproc);
-	MPI_Comm_Rank(MPI_COMM_WORLD,&myid);
+	MPI_Comm_rank(MPI_COMM_WORLD,&myid);
 
 	// test local MatMatMul
 	if(!myDGEMMok() && myid == 0){
 		printf("local MMM wrong\n");
-		return 0;
+		goto fine;
 	}
 	
 	MPI_Comm comm_row,comm_col;
@@ -115,34 +126,36 @@ int main(int argc,char** argv){
 	B = (double*)malloc(nw*nh * sizeof(double));
 	C = (double*)malloc(nw*nh * sizeof(double));
 	
-	work1 = (double*)malloc(nh*K*sizeof(double));
-	work2 = (double*)malloc(nw*K*sizeof(double));
+	work1 = (double*)malloc(nh*nw/K*sizeof(double));
+	work2 = (double*)malloc(nw*nh/K*sizeof(double));
 
 	initMat();
 	
 	int rowid,colid;
-	MPI_Comm_Rank(comm_row,&rowid);
-	MPI_Comm_Rank(comm_col,&colid);
+	MPI_Comm_rank(comm_row,&rowid);
+	MPI_Comm_rank(comm_col,&colid);
+
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	double t1 = MPI_Wtime();
 
+
 	// assume A is transposed
 	for(int i = 0; i < Height; i++){
 		for(int j = 0; j < Width; j++){
-			for(int k = 0; i < K; k++){
+			for(int k = 0; k < K; k++){
 				// broadcast a within my row
-				broadCast(comm_row,i,rowid,A+k*nh,nh*K,work1);
+				broadCast(comm_row,i,rowid,A+k*nh*(nw/K),nh*(nw/K),work1);
 				// braodcast b within my col
-				broadCast(comm_col,j,colid,B+k*nw,nw*K,work2);
+				broadCast(comm_col,j,colid,B+k*nw*(nh/K),nw*(nh/K),work2);
 				// C(i,j) = C(i,j) + ab
-				myDGEMM(nh,nw,K,work1,work2,C);
+				myDGEMM(nh,nw,nw/K,work1,work2,C);
 			}
 		}
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
-	double MPI_Wtime();
+	double t2 = MPI_Wtime();
 	if(myid == 0){
 		printf("elapsed time = %f sec\n",t2-t1);
 	}
@@ -150,15 +163,18 @@ int main(int argc,char** argv){
 	// algo check
 	double eps = 1e-12;
 	for(int i = 0; i < nw*nh; i++){
-		if(fabs(C[i]-N) > eps){
+		if(fabs(C[i]-N) > eps && myid == 0){
+			printf("%f %d\n",C[i],N);
 			printf("global MMM wrong\n");
 			break;
 		}
 	}
-	
+	free(work1);
+	free(work2);
 	free(A);
 	free(B);
 	free(C);
+fine:
 	MPI_Finalize();
 	return 0;
 }
