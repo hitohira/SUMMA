@@ -12,10 +12,12 @@
 // each val is positive and power of 2, N >= Height * K, N >= Width * K
 // Height and Width depend on Num of MPI proc
 // height == Width
-#define N 1024
+#define N (1<<12) 
 #define Height 4
 #define Width 4
-#define K 4
+#define K 8
+
+#define TIMES 3
 
 int nw,nh;
 double *A,*B,*C;
@@ -129,35 +131,40 @@ int main(int argc,char** argv){
 	work1 = (double*)malloc(nh*nw/K*sizeof(double));
 	work2 = (double*)malloc(nw*nh/K*sizeof(double));
 
-	initMat();
 	
 	int rowid,colid;
 	MPI_Comm_rank(comm_row,&rowid);
 	MPI_Comm_rank(comm_col,&colid);
 
+	double t_sum = 0.0;
+	for(int tm = 0; tm <= TIMES; tm++){
+		initMat();
 
-	MPI_Barrier(MPI_COMM_WORLD);
-	double t1 = MPI_Wtime();
+		MPI_Barrier(MPI_COMM_WORLD);
+		double t1 = MPI_Wtime();
 
 
-	// assume A is transposed
-	for(int i = 0; i < Height; i++){
-		for(int j = 0; j < Width; j++){
+		// assume A is transposed
+		for(int i = 0; i < Height; i++){
 			for(int k = 0; k < K; k++){
 				// broadcast a within my row
 				broadCast(comm_row,i,rowid,A+k*nh*(nw/K),nh*(nw/K),work1);
 				// braodcast b within my col
-				broadCast(comm_col,j,colid,B+k*nw*(nh/K),nw*(nh/K),work2);
+				broadCast(comm_col,i,colid,B+k*nw*(nh/K),nw*(nh/K),work2);
 				// C(i,j) = C(i,j) + ab
 				myDGEMM(nh,nw,nw/K,work1,work2,C);
 			}
 		}
-	}
 
-	MPI_Barrier(MPI_COMM_WORLD);
-	double t2 = MPI_Wtime();
+		MPI_Barrier(MPI_COMM_WORLD);
+		double t2 = MPI_Wtime();
+		
+		if(tm != 0){
+			t_sum += t2 - t1;
+		}
+	}
 	if(myid == 0){
-		printf("elapsed time = %f sec\n",t2-t1);
+		printf("elapsed time = %f sec\n",t_sum/TIMES);
 	}
 
 	// algo check
