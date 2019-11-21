@@ -8,11 +8,11 @@ typedef struct{
 	MPI_Comm comm;
 } GridInfo;
 typedef struct{
-	int numx,numy,numz;
+	int numglobal,numx,numy,numz;
 	GridInfo global,gx,gy,gz;
 } GridInfo3D;
 
-void mypdgemm(int n,double* A.double* B,double* C,GridInfo3D* gi);
+void mypdgemm(int n,double* A.double* B,double* C,double* work1,double* work2,GridInfo3D* gi);
 int get3dComm(MPI_Comm oldComm,GridInfo3D* gi);
 
 #endif

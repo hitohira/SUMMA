@@ -22,12 +22,77 @@ void localMul(int size,double* A,double* B,double* C){
 	dgemm_("N","N",&m,&n,&k,&alpha,A,&ldA,B,&ldB,&beta,C,&ldC);
 }
 
-void mypdgemm(int n,double* A,double* B,double* C,GridInfo3D* gi){
-	// TODO
+void swap(double** a,double** b){
+	double* t = *a;
+	*a = *b;
+	*b = t;
+}
+
+void mypdgemm(int n,double* A,double* B,double* C,double* work1,double* work2,GridInfo3D* gi){
+	GridInfo gridX,gridY,gridZ;
+	gridX = gi->gx;
+	gridY = gi->gy;
+	gridZ = gi->gz;
+	int numx = gi->numx;
+	int numy = gi->numy;
+	int numz = gi->numz;
+
+	int i = gridX.iam;
+	int j = gridY.iam;
+	int k = gridZ.iam;
+	int c = numz;
+	int p = gi->numglobal;
+	int pc_12 = numx;
+	int pc3_12 = numx / numz;
+	
+	MPI_Request req[4];
+	MPI_Status status[4];
+	int count = n*n;
+
+
+	MPI_Bcast(A,count,MPI_DOUBLE,0,gridZ.comm);
+	MPI_Bcast(B,count,MPI_DOUBLE,0,gridZ.comm);
+	
+	int r = (j + i - k*pc3_12 + pc_12*k) % pc_12;
+	int s = (j - i + k*pc3_12 + pc_12) % pc_12;
+
+	MPI_Isend(A,count,MPI_DOUBLE,s,0,gridY.comm,&req[0]);
+	MPI_Irecv(work1,count,MPI_DOUBLE,MPI_ANY_SOURCE,0,gridY.comm,&req[1]);
+
+	int sp = (i - j + k*pc3_12 + pc_12) % pc_12;
+	
+	MPI_Isend(B,count,MPI_DOUBLE,sp,0,gridX.comm,&req[2]);
+	MPI_Irecv(work2,count,MPI_DOUBLE,MPI_ANY_SOURCE,0,gridX.comm,&req[3]);
+
+	MPI_Waitall(4,req,status);
+	localMul(n,work1,work2,C);
+
+
+	s = (j+1) % pc_12;
+	sp = (i+1) % pc_12;
+
+	for(int t = 1; t < pc3_12; t++){
+		swap(&A,&work1);
+		swap(&B,&work2);
+		
+		MPI_Isend(A,count,MPI_DOUBLE,s,t,gridY.comm,&req[0]);
+		MPI_Isend(B,count,MPI_DOUBLE,sp,t,gridX.comm,&req[2]);
+
+		r = (r - 1 + pc_12) % pc_12;
+
+		MPI_Irecv(work1,count,MPI_DOUBLE,MPI_ANY_SOURCE,t,gridY.comm,&req[1]);
+		MPI_Irecv(work2,count,MPI_DOUBLE,MPI_ANY_SOURCE,t,gridX.comm,&req[3]);
+		
+		MPI_Waitall(4,req,status);
+	}
+
+	MPI_Reduce(C,work1,count,MPI_DOUBLE,MPI_SUM,0,gridZ.comm);
 }
 
 
 int get3dComm(MPI_Comm oldComm,GridInfo3D* gi){
+	int numprocs;
+	MPI_Comm_size(oldComm,&numprocs);
 	
 	int ndims = 3;
 	int dims[3];
@@ -43,7 +108,12 @@ int get3dComm(MPI_Comm oldComm,GridInfo3D* gi){
 		fprintf(stderr,"wrong # of proc\n");
 		return -1;
 	}
+	if(numprocs % (dims[2]*dims[2] * dims[2]) != 0){
+		fprintf(stderr,"# proc \% dim[2]^3 != 0\n");
+		return -1;
+	}
 
+	gi->numglobal = numprocs;
 	gi->numx = dims[0];
 	gi->numy = dims[1];
 	gi->numz = dims[2];

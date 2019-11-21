@@ -5,6 +5,7 @@
 #include "MM25.h"	
 
 #define SIZE_OF_MATRIX 1024
+#define TIMES 10
 
 int is_pow2(int n){
 	while(n > 1){
@@ -45,6 +46,8 @@ int main(int argc,char** argv){
 	double *A = NULL;
 	double *B = NULL;
 	double *C = NULL;
+	double *work1 = NULL;
+	double *work2 = NULL;
 	MPI_Init(&argc,&argv);
 	MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD,&myid);
@@ -66,23 +69,41 @@ int main(int argc,char** argv){
 	gridZ = gridinfo3d.gz;
 	int n = SIZE_OF_MATRIX;
 	int subn = n / (numprocs / gridinfo3d.numz);
-	A = malloc(subn*sizeof(double));
-	B = malloc(subn*sizeof(double));
-	C = malloc(subn*sizeof(double));
-	if(A == NULL || B == NULL || C == NULL){
+	A = (double*)malloc(subn*sizeof(double));
+	B = (double*)malloc(subn*sizeof(double));
+	C = (double*)malloc(subn*sizeof(double));
+	work1 = (double*)malloc(subn*sizeof(double));
+	work2 = (double*)malloc(subn*sizeof(double));
+	if(A == NULL || B == NULL || C == NULL || work1 == NULL || work2 == NULL){
 		goto fine;
 	}
+
+	double ave = 0.0;
+
 	initA(subn,A);
 	initB(subn,B);
 	initC(subn,C);
-
-	// calc
-	mypdgemm(subn,A,B,C);
+	mypdgemm(subn,A,B,C,work1,work2,gridinfo3d);
+	for(int t = 0; t < TIMES; t++){
+		initA(subn,A);
+		initB(subn,B);
+		initC(subn,C);
+		MPI_Barrier(gridinfo3d.global.comm);
+		double t1 = MPI_Wtime();
+		mypdgemm(subn,A,B,C,work1,work2,gridinfo3d);
+		MPI_Barrier(gridinfo3d.global.comm);
+		double t2 = MPI_Wtime();
+		ave += (t2 - t1);
+	}
+	ave /= TIMES;
+	printf("ave. = \f\n",ave);
 
 fine:
 	if(A != NULL) free(A);
 	if(B != NULL) free(B);
 	if(C != NULL) free(C);
+	if(work1 != NULL) free(work1);
+	if(work2 != NULL) free(work2);
 	MPI_Finalize();
 	return 0;
 }
