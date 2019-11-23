@@ -1,11 +1,12 @@
-
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "MM25.h"	
 
-#define SIZE_OF_MATRIX 1024
+#define SIZE_OF_MATRIX 2048
 #define TIMES 10
+
+// proc num = 4 * x * x
 
 int is_pow2(int n){
 	while(n > 1){
@@ -18,12 +19,12 @@ int is_pow2(int n){
 }
 
 void initAll1(int n,double *a){
-	for(int i = 0; i < n; i++){
+	for(int i = 0; i < n*n; i++){
 		a[i] = 1.0;
 	}
 }
 void initAll0(int n,double *a){
-	for(int i = 0; i < n; i++){
+	for(int i = 0; i < n*n; i++){
 		a[i] = 0.0;
 	}
 }
@@ -68,12 +69,12 @@ int main(int argc,char** argv){
 	gridY = gridinfo3d.gy;
 	gridZ = gridinfo3d.gz;
 	int n = SIZE_OF_MATRIX;
-	int subn = n / (numprocs / gridinfo3d.numz);
-	A = (double*)malloc(subn*sizeof(double));
-	B = (double*)malloc(subn*sizeof(double));
-	C = (double*)malloc(subn*sizeof(double));
-	work1 = (double*)malloc(subn*sizeof(double));
-	work2 = (double*)malloc(subn*sizeof(double));
+	int subn = n / gridinfo3d.numx;
+	A = (double*)malloc(subn*subn*sizeof(double));
+	B = (double*)malloc(subn*subn*sizeof(double));
+	C = (double*)malloc(subn*subn*sizeof(double));
+	work1 = (double*)malloc(subn*subn*sizeof(double));
+	work2 = (double*)malloc(subn*subn*sizeof(double));
 	if(A == NULL || B == NULL || C == NULL || work1 == NULL || work2 == NULL){
 		goto fine;
 	}
