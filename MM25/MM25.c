@@ -7,7 +7,7 @@
 extern void dgemm_(char* ta,char* tb,int* m,int* n,int* k,
                   double* alpha,double* A,int* ldA,
                   double* B,int* ldB,double* beta,double* C,int* ldC);
-
+extern void dcopy_(int* n,double* x,int* incx,double* y,int* incy);
 
 //////////////////////////////////////////////////////////////////	
 /// functions
@@ -28,7 +28,66 @@ void swap(double** a,double** b){
 	*b = t;
 }
 
+
 void mypdgemm(int n,double* A,double* B,double* C,double* work1,double* work2,GridInfo3D* gi){
+	mypdgemm_summa(n,A,B,C,work1,work2,gi);
+}
+
+
+void mypdgemm_summa(int n,double* A,double* B,double* C,double* work1,double* work2,GridInfo3D* gi){
+	GridInfo gridX,gridY,gridZ;
+	gridX = gi->gx;
+	gridY = gi->gy;
+	gridZ = gi->gz;
+	int numx = gi->numx;
+	int numy = gi->numy;
+	int numz = gi->numz;
+
+	int i = gridX.iam;
+	int j = gridY.iam;
+	int k = gridZ.iam;
+	int c = numz;
+	int p = gi->numglobal;
+	int pc_12 = numx;
+	int pc3_12 = numx / numz;
+
+	MPI_Status status;
+	int count = n*n;
+	
+	int incx = 1;
+	int incy = 1;
+
+	int dt = k * pc3_12;
+	for(int t = dt; t < dt + pc3_12; t++){
+		if(j == t){
+			dcopy_(&count,A,&incx,work1,&incy);
+		}
+		if(i == t){
+			dcopy_(&count,B,&incx,work2,&incy);
+		}
+		MPI_Bcast(work1,count,MPI_DOUBLE,t,gridX.comm);
+		MPI_Bcast(work2,count,MPI_DOUBLE,t,gridY.comm);
+		localMul(n,work1,work2,C);
+	}
+}
+
+void mypdgemm_summa(int n,double* A,double* B,double* C,double* work1,double* work2,GridInfo3D* gi){
+	GridInfo gridX,gridY,gridZ;
+	gridZ = gi->gz;
+	int count = n*n;
+
+	MPI_Bcast(A,count,MPI_DOUBLE,0,gridZ.comm);
+	MPI_Bcast(B,count,MPI_DOUBLE,0,gridZ.comm);
+
+	mypdgemm_summa_sub(n,A,B,C,work1,work2,gi);
+
+	int incx = 1;
+	int incy = 1;
+	dcopy_(&count,C,&incx,work1,&incy);
+	MPI_Reduce(work1,C,count,MPI_DOUBLE,MPI_SUM,0,gridZ.comm);
+}
+
+void mypdgemm_cannon(int n,double* A,double* B,double* C,double* work1,double* work2,GridInfo3D* gi){
 	GridInfo gridX,gridY,gridZ;
 	gridX = gi->gx;
 	gridY = gi->gy;
@@ -84,9 +143,13 @@ void mypdgemm(int n,double* A,double* B,double* C,double* work1,double* work2,Gr
 		MPI_Irecv(work2,count,MPI_DOUBLE,MPI_ANY_SOURCE,t,gridX.comm,&req[3]);
 		
 		MPI_Waitall(4,req,status);
+		localMul(n,work1,work2,C);
 	}
-
-	MPI_Reduce(C,work1,count,MPI_DOUBLE,MPI_SUM,0,gridZ.comm);
+	
+	int incx = 1;
+	int incy = 1;
+	dcopy_(&count,C,&incx,work1,&incy);
+	MPI_Reduce(work1,C,count,MPI_DOUBLE,MPI_SUM,0,gridZ.comm);
 }
 
 
