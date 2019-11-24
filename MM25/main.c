@@ -38,6 +38,15 @@ void initC(int n,double* C){
 	initAll0(n,C);
 }
 
+int matOK(int n,double* C){
+	for(int i = 0; i < n*n; i++){
+		if(fabs(C[i]-n) > 1e4){
+			return 0;
+		}
+	}
+	return 1;
+}
+
 
 int main(int argc,char** argv){
 	int numprocs,myid;
@@ -98,6 +107,10 @@ int main(int argc,char** argv){
 	}
 	ave /= TIMES;
 	printf("ave. = \f\n",ave);
+
+	if(!matOK(subn,C)){
+		printf("wrong pgemm\n");
+	}
 
 fine:
 	if(A != NULL) free(A);
