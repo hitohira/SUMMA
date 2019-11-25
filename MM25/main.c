@@ -4,7 +4,7 @@
 #include <math.h>
 #include "MM25.h"	
 
-#define SIZE_OF_MATRIX 2048
+#define SIZE_OF_MATRIX 1024 
 #define TIMES 10
 
 // proc num = 4 * x * x
@@ -107,10 +107,11 @@ int main(int argc,char** argv){
 		ave += (t2 - t1);
 	}
 	ave /= TIMES;
-	printf("ave. = %f\n",ave);
-
-	if(!matOK(subn,C)){
-		printf("wrong pgemm\n");
+	if(myid == 0){
+		printf("ave. = %f\n",ave);
+		if(!matOK(subn,C)){
+			printf("wrong pgemm\n");
+		}
 	}
 
 fine:
