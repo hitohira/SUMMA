@@ -1,6 +1,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "MM25.h"	
 
 #define SIZE_OF_MATRIX 2048
@@ -93,20 +94,20 @@ int main(int argc,char** argv){
 	initA(subn,A);
 	initB(subn,B);
 	initC(subn,C);
-	mypdgemm(subn,A,B,C,work1,work2,gridinfo3d);
+	mypdgemm(subn,A,B,C,work1,work2,&gridinfo3d);
 	for(int t = 0; t < TIMES; t++){
 		initA(subn,A);
 		initB(subn,B);
 		initC(subn,C);
 		MPI_Barrier(gridinfo3d.global.comm);
 		double t1 = MPI_Wtime();
-		mypdgemm(subn,A,B,C,work1,work2,gridinfo3d);
+		mypdgemm(subn,A,B,C,work1,work2,&gridinfo3d);
 		MPI_Barrier(gridinfo3d.global.comm);
 		double t2 = MPI_Wtime();
 		ave += (t2 - t1);
 	}
 	ave /= TIMES;
-	printf("ave. = \f\n",ave);
+	printf("ave. = %f\n",ave);
 
 	if(!matOK(subn,C)){
 		printf("wrong pgemm\n");

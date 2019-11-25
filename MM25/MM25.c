@@ -1,6 +1,7 @@
-#include <mpi.c>
+#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "MM25.h"
 
@@ -28,13 +29,7 @@ void swap(double** a,double** b){
 	*b = t;
 }
 
-
-void mypdgemm(int n,double* A,double* B,double* C,double* work1,double* work2,GridInfo3D* gi){
-	mypdgemm_summa(n,A,B,C,work1,work2,gi);
-}
-
-
-void mypdgemm_summa(int n,double* A,double* B,double* C,double* work1,double* work2,GridInfo3D* gi){
+void mypdgemm_summa_sub(int n,double* A,double* B,double* C,double* work1,double* work2,GridInfo3D* gi){
 	GridInfo gridX,gridY,gridZ;
 	gridX = gi->gx;
 	gridY = gi->gy;
@@ -152,6 +147,10 @@ void mypdgemm_cannon(int n,double* A,double* B,double* C,double* work1,double* w
 	MPI_Reduce(work1,C,count,MPI_DOUBLE,MPI_SUM,0,gridZ.comm);
 }
 
+void mypdgemm(int n,double* A,double* B,double* C,double* work1,double* work2,GridInfo3D* gi){
+	mypdgemm_summa(n,A,B,C,work1,work2,gi);
+}
+
 
 int get3dComm(MPI_Comm oldComm,GridInfo3D* gi){
 	int numprocs;
@@ -159,7 +158,7 @@ int get3dComm(MPI_Comm oldComm,GridInfo3D* gi){
 	
 	int ndims = 3;
 	int dims[3];
-	int preriod[3] = {0,0,0};
+	int period[3] = {0,0,0};
 	int reorder = 1;
 	int iam;
 	int coords[3];
@@ -172,7 +171,7 @@ int get3dComm(MPI_Comm oldComm,GridInfo3D* gi){
 		return -1;
 	}
 	if(numprocs % (dims[2]*dims[2] * dims[2]) != 0){
-		fprintf(stderr,"# proc \% dim[2]^3 != 0\n");
+		fprintf(stderr,"# proc mod dim[2]^3 != 0\n");
 		return -1;
 	}
 
@@ -181,7 +180,7 @@ int get3dComm(MPI_Comm oldComm,GridInfo3D* gi){
 	gi->numy = dims[1];
 	gi->numz = dims[2];
 
-	int err = MPI_Cart_create(oldComm,ndim,dims,period,reorder,&newComm);
+	int err = MPI_Cart_create(oldComm,ndims,dims,period,reorder,&newComm);
 	if(err != MPI_SUCCESS){
 		fprintf(stderr,"cart create error\n");
 		return -1;
