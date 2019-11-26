@@ -17,3 +17,6 @@ $(MAIN): $(OBJS)
 .PHONY: clean
 clean:
 	rm $(MAIN) *.o
+
+localtest: localtest.o MM25.o
+	$(CC) -o $@ $^ $(MKLLIB);./localtest;rm localtest

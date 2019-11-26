@@ -152,7 +152,7 @@ void mypdgemm(int n,double* A,double* B,double* C,double* work1,double* work2,Gr
 }
 
 
-int get3dComm(MPI_Comm oldComm,GridInfo3D* gi){
+int get3dComm(MPI_Comm oldComm,GridInfo3D* gi,int zdim){
 	int numprocs;
 	MPI_Comm_size(oldComm,&numprocs);
 	
@@ -164,14 +164,19 @@ int get3dComm(MPI_Comm oldComm,GridInfo3D* gi){
 	int coords[3];
 	MPI_Comm newComm;
 	
-	dims[2] = 4;
-	dims[0] = dims[1] = sqrt(numprocs/4);
+	if(zdim <= 0){
+		dims[2] = 4;
+	}
+	else{
+		dims[2] = zdim;
+	}
+	dims[0] = dims[1] = sqrt(numprocs/dims[2]);
 	if(dims[0] * dims[1] * dims[2] != numprocs){
 		fprintf(stderr,"wrong # of proc\n");
 		return -1;
 	}
-	if(numprocs % (dims[2]*dims[2] * dims[2]) != 0){
-		fprintf(stderr,"# proc mod dim[2]^3 != 0\n");
+	if(numprocs % (dims[2] * dims[2] * dims[2]) != 0){
+		fprintf(stderr,"# proc mod dims[2]^3 != 0\n");
 		return -1;
 	}
 

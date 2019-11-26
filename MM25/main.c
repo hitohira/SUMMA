@@ -4,7 +4,7 @@
 #include <math.h>
 #include "MM25.h"	
 
-#define SIZE_OF_MATRIX 1024 
+#define SIZE_OF_MATRIX 2048 
 #define TIMES 10
 
 // proc num = 4 * x * x
@@ -70,47 +70,55 @@ int main(int argc,char** argv){
 		fprintf(stderr,"size of matrix should be pow of 2\n");
 		goto fine;
 	}
-																	
-	err = get3dComm(MPI_COMM_WORLD,&gridinfo3d);
-	if(err == -1){
-		goto fine;
-	}
-	gridX = gridinfo3d.gx;
-	gridY = gridinfo3d.gy;
-	gridZ = gridinfo3d.gz;
-	int n = SIZE_OF_MATRIX;
-	int subn = n / gridinfo3d.numx;
-	A = (double*)malloc(subn*subn*sizeof(double));
-	B = (double*)malloc(subn*subn*sizeof(double));
-	C = (double*)malloc(subn*subn*sizeof(double));
-	work1 = (double*)malloc(subn*subn*sizeof(double));
-	work2 = (double*)malloc(subn*subn*sizeof(double));
-	if(A == NULL || B == NULL || C == NULL || work1 == NULL || work2 == NULL){
-		goto fine;
-	}
+	
+	for(int z = 0; z < 2; z++){
+		if(z == 0){
+			err = get3dComm(MPI_COMM_WORLD,&gridinfo3d,1);
+		}
+		else{
+			err = get3dComm(MPI_COMM_WORLD,&gridinfo3d,4);
+		}
+		if(err == -1){
+			goto fine;
+		}
+		gridX = gridinfo3d.gx;
+		gridY = gridinfo3d.gy;
+		gridZ = gridinfo3d.gz;
+		int n = SIZE_OF_MATRIX;
+		int subn = n / gridinfo3d.numx;
+		A = (double*)malloc(subn*subn*sizeof(double));
+		B = (double*)malloc(subn*subn*sizeof(double));
+		C = (double*)malloc(subn*subn*sizeof(double));
+		work1 = (double*)malloc(subn*subn*sizeof(double));
+		work2 = (double*)malloc(subn*subn*sizeof(double));
+		if(A == NULL || B == NULL || C == NULL || work1 == NULL || work2 == NULL){
+			goto fine;
+		}
 
-	double ave = 0.0;
+		double ave = 0.0;
 
-	initA(subn,A);
-	initB(subn,B);
-	initC(subn,C);
-	mypdgemm(subn,A,B,C,work1,work2,&gridinfo3d);
-	for(int t = 0; t < TIMES; t++){
 		initA(subn,A);
 		initB(subn,B);
 		initC(subn,C);
-		MPI_Barrier(gridinfo3d.global.comm);
-		double t1 = MPI_Wtime();
 		mypdgemm(subn,A,B,C,work1,work2,&gridinfo3d);
-		MPI_Barrier(gridinfo3d.global.comm);
-		double t2 = MPI_Wtime();
-		ave += (t2 - t1);
-	}
-	ave /= TIMES;
-	if(myid == 0){
-		printf("ave. = %f\n",ave);
-		if(!matOK(subn,C)){
-			printf("wrong pgemm\n");
+		for(int t = 0; t < TIMES; t++){
+			initA(subn,A);
+			initB(subn,B);
+			initC(subn,C);
+			MPI_Barrier(gridinfo3d.global.comm);
+			double t1 = MPI_Wtime();
+			mypdgemm(subn,A,B,C,work1,work2,&gridinfo3d);
+			MPI_Barrier(gridinfo3d.global.comm);
+			double t2 = MPI_Wtime();
+			ave += (t2 - t1);
+		}
+		ave /= TIMES;
+		if(myid == 0){
+			printf("%s : ",z == 0 ? "2D" : "3D");
+			printf("ave. = %f\n",ave);
+			if(!matOK(subn,C)){
+				printf("wrong pgemm\n");
+			}
 		}
 	}
 
