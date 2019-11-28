@@ -206,6 +206,8 @@ int get3dComm(MPI_Comm oldComm,GridInfo3D* gi,int zdim){
 	gi->gx.iam = coords[0];
 	gi->gy.iam = coords[1];
 	gi->gz.iam = coords[2];
+
+	printf("%d %d %d %d\n",iam,coords[0],coords[1],coords[2]); // TODO remove
 	return 0;
 }
 
