@@ -4,7 +4,7 @@
 #include <math.h>
 #include "MM25.h"	
 
-#define SIZE_OF_MATRIX 2048 
+#define SIZE_OF_MATRIX 1024 
 #define TIMES 10
 
 // proc num = 4 * x * x
