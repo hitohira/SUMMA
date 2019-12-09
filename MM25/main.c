@@ -71,12 +71,18 @@ int main(int argc,char** argv){
 		goto fine;
 	}
 	
-	for(int z = 0; z < 2; z++){
+	for(int z = 0; z < 4; z++){
 		if(z == 0){
 			err = get3dComm(MPI_COMM_WORLD,&gridinfo3d,1);
 		}
-		else{
+		else if(z == 1){
 			err = get3dComm(MPI_COMM_WORLD,&gridinfo3d,4);
+		}
+		if(z == 2){
+			err = get3dComm2(MPI_COMM_WORLD,&gridinfo3d,1);
+		}
+		else if(z == 3){
+			err = get3dComm2(MPI_COMM_WORLD,&gridinfo3d,4);
 		}
 		if(err == -1){
 			goto fine;
