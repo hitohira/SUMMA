@@ -1,0 +1,28 @@
+2D : ave. = 0.002628
+sd. = 0.000036
+3D : ave. = 0.001315
+sd. = 0.000024
+dim 0 4
+dim 1 4
+dim 2 1
+new rank 0 = 0
+2D : ave. = 0.001672
+sd. = 0.000019
+dim 0 4
+dim 1 2
+dim 2 2
+new rank 0 = 0
+3D : ave. = 0.001317
+sd. = 0.000040
+dim 0 4
+dim 1 4
+dim 2 1
+new rank 0 = 0
+2D : ave. = 0.001643
+sd. = 0.000014
+dim 0 4
+dim 1 4
+dim 2 1
+new rank 0 = 0
+3D : ave. = 0.001335
+sd. = 0.000036

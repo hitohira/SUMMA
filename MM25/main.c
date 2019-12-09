@@ -4,7 +4,7 @@
 #include <math.h>
 #include "MM25.h"	
 
-#define SIZE_OF_MATRIX 1024 
+#define SIZE_OF_MATRIX 1024 * 8
 #define TIMES 10
 
 // proc num = 4 * x * x
@@ -71,7 +71,7 @@ int main(int argc,char** argv){
 		goto fine;
 	}
 	
-	for(int z = 0; z < 4; z++){
+	for(int z = 0; z < 6; z++){
 		if(z == 0){
 			err = get3dComm(MPI_COMM_WORLD,&gridinfo3d,1);
 		}
@@ -83,6 +83,12 @@ int main(int argc,char** argv){
 		}
 		else if(z == 3){
 			err = get3dComm2(MPI_COMM_WORLD,&gridinfo3d,4);
+		}
+		if(z == 4){
+			err = get3dComm3(MPI_COMM_WORLD,&gridinfo3d,1);
+		}
+		else if(z == 5){
+			err = get3dComm3(MPI_COMM_WORLD,&gridinfo3d,4);
 		}
 		if(err == -1){
 			goto fine;
@@ -102,6 +108,7 @@ int main(int argc,char** argv){
 		}
 
 		double ave = 0.0;
+		double sd = 0.0;
 
 		initA(subn,A);
 		initB(subn,B);
@@ -117,11 +124,15 @@ int main(int argc,char** argv){
 			MPI_Barrier(gridinfo3d.global.comm);
 			double t2 = MPI_Wtime();
 			ave += (t2 - t1);
+			sd += (t2-t1)*(t2-t1);
 		}
 		ave /= TIMES;
+		sd /= TIMES;
+		sd = sqrt(sd-ave*ave);
 		if(myid == 0){
-			printf("%s : ",z == 0 ? "2D" : "3D");
+			printf("%s : ",z % 2 == 0 ? "2D" : "3D");
 			printf("ave. = %f\n",ave);
+			printf("sd. = %f\n",sd);
 			if(!matOK(subn,C)){
 				printf("wrong pgemm\n");
 			}
