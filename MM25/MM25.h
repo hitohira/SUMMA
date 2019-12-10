@@ -6,6 +6,9 @@
 extern int MPIMY_Cart_create(MPI_Comm comm_old,int ndims,int dims[],int periods[],MPI_Comm* comm_cart);
 extern int MPIMY_Cart_create2(MPI_Comm comm_old,int ndims,int dims[],int periods[],MPI_Comm* comm_cart);
 
+void initGlobCommTime();
+double getGlobCommTime();
+
 typedef struct{
 	int iam;
 	MPI_Comm comm;

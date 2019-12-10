@@ -14,6 +14,17 @@ extern void dcopy_(int* n,double* x,int* incx,double* y,int* incy);
 /// functions
 //////////////////////////////////////////////////////////////////	
 
+double globCommTime;
+
+void initGlobCommTime(){ 
+	globCommTime = 0; 
+}
+
+double getGlobCommTime(){
+	return globCommTime; 
+}
+
+
 void localMul(int size,double* A,double* B,double* C){
 	int m,n,k,ldA,ldB,ldC;
 	m = n = k = ldA = ldB = ldC = size;
@@ -60,8 +71,11 @@ void mypdgemm_summa_sub(int n,double* A,double* B,double* C,double* work1,double
 		if(i == t){
 			dcopy_(&count,B,&incx,work2,&incy);
 		}
+		double t1 = MPI_Wtime();
 		MPI_Bcast(work1,count,MPI_DOUBLE,t,gridX.comm);
 		MPI_Bcast(work2,count,MPI_DOUBLE,t,gridY.comm);
+		double t2 = MPI_Wtime();
+		globCommTime += t2-t1;
 		localMul(n,work1,work2,C);
 	}
 }
@@ -70,16 +84,22 @@ void mypdgemm_summa(int n,double* A,double* B,double* C,double* work1,double* wo
 	GridInfo gridX,gridY,gridZ;
 	gridZ = gi->gz;
 	int count = n*n;
-
+	
+		double t1 = MPI_Wtime();
 	MPI_Bcast(A,count,MPI_DOUBLE,0,gridZ.comm);
 	MPI_Bcast(B,count,MPI_DOUBLE,0,gridZ.comm);
+		double t2 = MPI_Wtime();
+		globCommTime += t2-t1;
 
 	mypdgemm_summa_sub(n,A,B,C,work1,work2,gi);
 
 	int incx = 1;
 	int incy = 1;
 	dcopy_(&count,C,&incx,work1,&incy);
+		t1 = MPI_Wtime();
 	MPI_Reduce(work1,C,count,MPI_DOUBLE,MPI_SUM,0,gridZ.comm);
+		t2 = MPI_Wtime();
+		globCommTime += t2-t1;
 }
 
 void mypdgemm_cannon(int n,double* A,double* B,double* C,double* work1,double* work2,GridInfo3D* gi){

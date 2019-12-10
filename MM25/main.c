@@ -72,6 +72,7 @@ int main(int argc,char** argv){
 	}
 	
 	for(int z = 0; z < 6; z++){
+		initGlobCommTime();
 		if(z == 0){
 			err = get3dComm(MPI_COMM_WORLD,&gridinfo3d,1);
 		}
@@ -133,6 +134,7 @@ int main(int argc,char** argv){
 			printf("%s : ",z % 2 == 0 ? "2D" : "3D");
 			printf("ave. = %f\n",ave);
 			printf("sd. = %f\n",sd);
+			printf("comm time ave. = %f\n",getGlobCommTime() / TIMES);
 			if(!matOK(subn,C)){
 				printf("wrong pgemm\n");
 			}
