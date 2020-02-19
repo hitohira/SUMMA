@@ -4,8 +4,8 @@
 #include <math.h>
 #include "MM25.h"	
 
-#define SIZE_OF_MATRIX 1024 * 8
-#define TIMES 10
+#define SIZE_OF_MATRIX (128*12)
+#define TIMES 15
 
 // proc num = 4 * x * x
 
@@ -62,6 +62,7 @@ int main(int argc,char** argv){
 	MPI_Init(&argc,&argv);
 	MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD,&myid);
+/*
 	if(!is_pow2(numprocs)){
 		fprintf(stderr,"numprocs should be pow of 2\n");
 		goto fine;
@@ -70,8 +71,8 @@ int main(int argc,char** argv){
 		fprintf(stderr,"size of matrix should be pow of 2\n");
 		goto fine;
 	}
-	
-	for(int z = 0; z < 6; z++){
+*/
+	for(int z = 0; z < 5; z++){
 		initGlobCommTime();
 		if(z == 0){
 			err = get3dComm(MPI_COMM_WORLD,&gridinfo3d,1);
@@ -85,12 +86,12 @@ int main(int argc,char** argv){
 		else if(z == 3){
 			err = get3dComm2(MPI_COMM_WORLD,&gridinfo3d,4);
 		}
-		if(z == 4){
-			err = get3dComm3(MPI_COMM_WORLD,&gridinfo3d,1);
-		}
-		else if(z == 5){
+		else if(z == 4){
 			err = get3dComm3(MPI_COMM_WORLD,&gridinfo3d,4);
 		}
+//		else if(z == 5){
+//			err = get3dComm4(MPI_COMM_WORLD,&gridinfo3d,4);
+//		}
 		if(err == -1){
 			goto fine;
 		}
@@ -115,6 +116,9 @@ int main(int argc,char** argv){
 		initB(subn,B);
 		initC(subn,C);
 		mypdgemm(subn,A,B,C,work1,work2,&gridinfo3d);
+		if(myid == 0){
+			printf("start\n");
+		}
 		for(int t = 0; t < TIMES; t++){
 			initA(subn,A);
 			initB(subn,B);
@@ -122,19 +126,23 @@ int main(int argc,char** argv){
 			MPI_Barrier(gridinfo3d.global.comm);
 			double t1 = MPI_Wtime();
 			mypdgemm(subn,A,B,C,work1,work2,&gridinfo3d);
+//			para_bcast(subn,A,B,C,work1,work2,&gridinfo3d);
 			MPI_Barrier(gridinfo3d.global.comm);
 			double t2 = MPI_Wtime();
 			ave += (t2 - t1);
 			sd += (t2-t1)*(t2-t1);
+			if(myid == 0){
+				printf("%f\n",t2-t1);
+			}
 		}
 		ave /= TIMES;
 		sd /= TIMES;
 		sd = sqrt(sd-ave*ave);
 		if(myid == 0){
+			printf("size = %d\n",SIZE_OF_MATRIX);
 			printf("%s : ",z % 2 == 0 ? "2D" : "3D");
 			printf("ave. = %f\n",ave);
 			printf("sd. = %f\n",sd);
-			printf("comm time ave. = %f\n",getGlobCommTime() / TIMES);
 			if(!matOK(subn,C)){
 				printf("wrong pgemm\n");
 			}
